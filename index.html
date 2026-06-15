@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArenaPlanner Pro - Mapeador & Setorização de Quadras</title>
+    <!-- Google Fonts para tipografia premium -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome para ícones modernos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Biblioteca HTML2Canvas para capturar a quadra como imagem -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-app: #0f172a; /* Slate 900 */
+            --bg-card: #1e293b; /* Slate 800 */
+            --border-color: #334155; /* Slate 700 */
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-color: #3b82f6; /* Blue 500 */
+            --accent-hover: #2563eb;
+            --court-blue: #0284c7;
+            --court-border: #ea580c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Header Estilizado */
+        header {
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 50;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-container i {
+            font-size: 24px;
+            color: var(--accent-color);
+            background: rgba(59, 130, 246, 0.1);
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .logo-container h1 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-container span {
+            color: var(--accent-color);
+        }
+
+        .status-badge {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-badge::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        /* Layout Principal Responsivo */
+        .app-container {
+            display: grid;
+            grid-template-columns: 320px 1fr 340px;
+            flex-grow: 1;
+            height: calc(100vh - 73px);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* Painel Lateral Comum */
+        .sidebar {
+            background-color: var(--bg-card);
+            border-right: 1px solid var(--border-color);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            overflow-y: auto;
+        }
+
+        .sidebar-right {
+            border-right: none;
+            border-left: 1px solid var(--border-color);
+        }
+
+        .panel-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Formulários e Controles */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-group label .scale-indicator {
+            font-size: 11px;
+            color: var(--accent-color);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .form-group input[type="text"], .form-group select {
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+            width: 100%;
+        }
+
+        .form-group input[type="text"]:focus, .form-group select:focus {
+            border-color: var(--accent-color);
+        }
+
+        /* Seleção de Formas */
+        .shape-selector-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .shape-btn {
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .shape-btn i {
+            font-size: 18px;
+        }
+
+        .shape-btn:hover {
+            border-color: var(--accent-color);
+            color: var(--text-main);
+        }
+
+        .shape-btn.active {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-color: var(--accent-color);
+            color: var(--text-main);
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+        }
+
+        /* Paleta de Cores Estéticas */
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .color-swatch {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.15s, border-color 0.15s;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+
+        .color-swatch.active {
+            border-color: var(--text-main);
+            box-shadow: 0 0 8px rgba(255,255,255,0.3);
+        }
+
+        .custom-color-picker {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            border-radius: 8px;
+        }
+
+        .custom-color-picker input[type="color"] {
+            border: none;
+            background: none;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .custom-color-picker span {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        /* Sliders de Propriedades */
+        .range-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .range-container input[type="range"] {
+            flex-grow: 1;
+            accent-color: var(--accent-color);
+            cursor: pointer;
+        }
+
+        .range-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            width: 45px;
+            text-align: right;
+            background: #0f172a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Botão Primário */
+        .btn-add {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            transition: background-color 0.2s, transform 0.1s;
+            margin-top: 10px;
+        }
+
+        .btn-add:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-add:active {
+            transform: scale(0.98);
+        }
+
+        /* Viewport Central da Quadra */
+        .viewport {
+            background-color: #0b0f19;
+            background-image: radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 24px 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Wrapper para forçar scroll limpo em telas pequenas */
+        .court-scroll-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        /* Arquibancada Superior Realista */
+        .stadium-bleachers {
+            width: 860px;
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            border: 2px solid var(--border-color);
+            border-bottom: none;
+            border-radius: 12px 12px 0 0;
+            padding: 10px 20px;
+            box-shadow: 0 -10px 25px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 10;
+        }
+
+        .bleacher-row {
+            height: 18px;
+            background-color: #334155;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            box-shadow: inset 0 1px 3px rgba(255,255,255,0.1), 0 2px 4px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .bleacher-row::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 4px;
+            background-color: #1e293b;
+            border-radius: 0 0 4px 4px;
+        }
+
+        .bleacher-row.vip {
+            background: linear-gradient(90deg, #c2410c 0%, #ea580c 50%, #c2410c 100%);
+        }
+
+        .bleacher-row span {
+            font-size: 9px;
+            font-weight: 700;
+            color: #94a3b8;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .bleacher-row.vip span {
+            color: #ffedd5;
+        }
+
+        .bleacher-seats {
+            display: flex;
+            gap: 6px;
+        }
+
+        .seat-dot {
+            width: 5px;
+            height: 5px;
+            background-color: #475569;
+            border-radius: 50%;
+        }
+
+        .vip .seat-dot {
+            background-color: #ffddd2;
+        }
+
+        /* Painel da Quadra Poliesportiva */
+        .court-canvas {
+            width: 860px;
+            height: 490px;
+            background-color: var(--court-border);
+            border: 6px solid #1e293b;
+            border-radius: 0 0 12px 12px;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            overflow: hidden;
+            user-select: none;
+            touch-action: none; /* Necessário para touch drag nativo fluir */
+        }
+
+        /* Área interna da Quadra */
+        .court-inner {
+            position: absolute;
+            top: 25px;
+            bottom: 25px;
+            left: 25px;
+            right: 25px;
+            background-color: var(--court-blue);
+            border: 3px solid #ffffff;
+            box-shadow: inset 0 0 60px rgba(0,0,0,0.3);
+        }
+
+        /* SVG com as marcações oficiais sobrepostas */
+        .court-lines-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* Setores Marcados / Formas Interativas */
+        .sector-node {
+            position: absolute;
+            cursor: move;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            border-width: 2px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            transition: border-color 0.15s, box-shadow 0.15s;
+            touch-action: none; /* Previne scroll acidental durante o toque na forma */
+        }
+
+        .sector-node:hover {
+            box-shadow: 0 6px 15px rgba(0,0,0,0.35);
+        }
+
+        .sector-node.selected {
+            border-color: #ffffff !important;
+            outline: 2px dashed var(--accent-color);
+            outline-offset: 4px;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3), 0 8px 24px rgba(0,0,0,0.4);
+            z-index: 100 !important;
+        }
+
+        /* Renderizações das Formas Especiais */
+        .shape-rect {
+            border-radius: 8px;
+        }
+
+        .shape-circle {
+            border-radius: 50%;
+            aspect-ratio: 1;
+        }
+
+        .shape-ellipse {
+            border-radius: 50%;
+        }
+
+        .shape-triangle {
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            padding-top: 20%;
+        }
+
+        /* Rótulo da Tag interna */
+        .sector-tag {
+            background-color: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(4px);
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            pointer-events: none;
+            white-space: nowrap;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+            max-width: 85%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Botão de Deletar Flutuante na Forma Selecionada */
+        .node-delete-btn {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            background-color: #ef4444;
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+            font-size: 11px;
+            transition: background-color 0.15s, transform 0.1s;
+            z-index: 110;
+        }
+
+        .sector-node.selected .node-delete-btn {
+            display: flex;
+        }
+
+        .node-delete-btn:hover {
+            background-color: #dc2626;
+            transform: scale(1.1);
+        }
+
+        /* Lista de Setores Ativos (Sidebar Direita) */
+        .sectors-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex-grow: 1;
+            overflow-y: auto;
+            max-height: 250px;
+            padding-right: 4px;
+        }
+
+        .sector-item {
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sector-item:hover {
+            border-color: var(--accent-color);
+            background-color: #131d31;
+        }
+
+        .sector-item.active {
+            border-color: var(--accent-color);
+            background-color: rgba(59, 130, 246, 0.05);
+            box-shadow: inset 3px 0 0 var(--accent-color);
+        }
+
+        .sector-item-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .sector-item-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0;
+        }
+
+        .sector-item-name {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sector-item-type {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .sector-item-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-icon-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px;
+            border-radius: 4px;
+            transition: color 0.15s, background-color 0.15s;
+        }
+
+        .action-icon-btn:hover {
+            color: var(--text-main);
+            background-color: rgba(255,255,255,0.05);
+        }
+
+        .action-icon-btn.delete:hover {
+            color: #ef4444;
+            background-color: rgba(239, 68, 68, 0.05);
+        }
+
+        /* Botões de Ações de Arquivo */
+        .file-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 16px;
+        }
+
+        .btn-secondary {
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-muted);
+            background-color: #131d31;
+        }
+
+        .btn-clear-all {
+            grid-column: span 2;
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .btn-clear-all:hover {
+            background-color: #ef4444;
+            color: white;
+            border-color: #ef4444;
+        }
+
+        /* Overlay do Seletor no Canvas quando não há elementos */
+        .empty-canvas-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            color: rgba(255,255,255,0.4);
+            pointer-events: none;
+            text-align: center;
+            z-index: 5;
+        }
+
+        .empty-canvas-overlay i {
+            font-size: 40px;
+            color: rgba(255,255,255,0.25);
+        }
+
+        .empty-canvas-overlay p {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        /* Sistema Premium de Modais e Notificações (Substitutos de alerts nativos) */
+        .notification-toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background-color: #1e293b;
+            color: var(--text-main);
+            border-left: 4px solid var(--accent-color);
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .notification-toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .custom-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            padding: 20px;
+        }
+
+        .custom-dialog {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            padding: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes modalFadeIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .dialog-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dialog-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .dialog-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .dialog-btn {
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s;
+        }
+
+        .dialog-btn-cancel {
+            background-color: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+        }
+
+        .dialog-btn-cancel:hover {
+            background-color: rgba(255,255,255,0.05);
+            color: var(--text-main);
+        }
+
+        .dialog-btn-confirm {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .dialog-btn-confirm:hover {
+            background-color: #dc2626;
+        }
+
+        /* Indicador de rolagem mobile */
+        .mobile-scroll-badge {
+            display: none;
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--accent-color);
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* --- MEDIA QUERIES (Smartphone & Tablet Optimization) --- */
+        @media (max-width: 1024px) {
+            header {
+                padding: 12px 20px;
+            }
+
+            .status-badge {
+                display: none; /* Simplifica o topo no mobile */
+            }
+
+            .app-container {
+                grid-template-columns: 1fr;
+                height: auto;
+                overflow-y: auto;
+            }
+
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                height: auto;
+                overflow-y: visible;
+                padding: 20px;
+            }
+
+            .sidebar-right {
+                border-left: none;
+                border-top: 1px solid var(--border-color);
+            }
+
+            .viewport {
+                padding: 30px 10px;
+                overflow-x: auto;
+                justify-content: flex-start;
+                align-items: flex-start;
+            }
+
+            .court-scroll-wrapper {
+                align-items: flex-start;
+            }
+
+            .mobile-scroll-badge {
+                display: inline-flex;
+            }
+
+            .sectors-list {
+                max-height: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header / Barra de Navegação Superior -->
+    <header>
+        <div class="logo-container">
+            <i class="fa-solid fa-map-location-dot"></i>
+            <div>
+                <h1>Arena<span>Planner</span> Pro</h1>
+                <p style="font-size: 11px; color: var(--text-muted);">Editor de Setorização de Quadras</p>
+            </div>
+        </div>
+        <div class="status-badge">
+            Editor Ativo & Pronto
+        </div>
+    </header>
+
+    <!-- Estrutura de Trabalho principal -->
+    <div class="app-container">
+        
+        <!-- Sidebar Esquerda: Ferramentas e Configuração do Setor -->
+        <aside class="sidebar">
+            
+            <div>
+                <h3 class="panel-section-title">1. Configurar Tag</h3>
+                <div class="form-group">
+                    <label for="sector-name-input">Identificação / Nome</label>
+                    <input type="text" id="sector-name-input" placeholder="Ex: Setor A, Aluno 12..." value="Setor Alfa">
+                </div>
+            </div>
+
+            <div>
+                <h3 class="panel-section-title">2. Geometria da Área</h3>
+                <div class="shape-selector-grid">
+                    <button class="shape-btn active" data-shape="rect">
+                        <i class="fa-regular fa-square"></i>
+                        Retângulo
+                    </button>
+                    <button class="shape-btn" data-shape="circle">
+                        <i class="fa-regular fa-circle"></i>
+                        Círculo
+                    </button>
+                    <button class="shape-btn" data-shape="ellipse">
+                        <i class="fa-solid fa-circle-notch"></i>
+                        Elipse/Oval
+                    </button>
+                    <button class="shape-btn" data-shape="triangle">
+                        <i class="fa-solid fa-play" style="transform: rotate(-90deg);"></i>
+                        Triângulo
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="panel-section-title">3. Estilo Visual</h3>
+                <div class="form-group">
+                    <label>Selecione uma Cor</label>
+                    <div class="color-palette">
+                        <div class="color-swatch active" style="background-color: #3b82f6;" data-color="#3b82f6"></div>
+                        <div class="color-swatch" style="background-color: #ef4444;" data-color="#ef4444"></div>
+                        <div class="color-swatch" style="background-color: #10b981;" data-color="#10b981"></div>
+                        <div class="color-swatch" style="background-color: #f59e0b;" data-color="#f59e0b"></div>
+                        <div class="color-swatch" style="background-color: #8b5cf6;" data-color="#8b5cf6"></div>
+                    </div>
+                    <div class="custom-color-picker">
+                        <input type="color" id="custom-color-picker-input" value="#3b82f6">
+                        <span>Cor Personalizada</span>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="sector-opacity">Opacidade do Fundo</label>
+                    <div class="range-container">
+                        <input type="range" id="sector-opacity" min="10" max="100" value="45">
+                        <span class="range-val" id="opacity-val">45%</span>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="sector-border">Estilo de Borda</label>
+                    <select id="sector-border">
+                        <option value="dashed">Tracejada (Dashed)</option>
+                        <option value="solid">Contínua (Solid)</option>
+                        <option value="dotted">Pontilhada (Dotted)</option>
+                        <option value="none">Sem Borda</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn-add" id="btn-add-sector">
+                <i class="fa-solid fa-plus"></i> Adicionar Setor
+            </button>
+
+        </aside>
+
+        <!-- Área Central de Desenho / Visualização -->
+        <main class="viewport">
+            
+            <!-- Aviso amigável para celulares deslizarem para ver a quadra cheia -->
+            <div class="mobile-scroll-badge">
+                <i class="fa-solid fa-arrows-left-right"></i> Deslize para navegar pela quadra inteira
+            </div>
+
+            <div class="court-scroll-wrapper">
+                <!-- Arquibancada Superior Detalhada -->
+                <div class="stadium-bleachers">
+                    <div class="bleacher-row">
+                        <span>Fila C</span>
+                        <div class="bleacher-seats">
+                            <div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div>
+                        </div>
+                        <span>Fila C</span>
+                    </div>
+                    <div class="bleacher-row">
+                        <span>Fila B</span>
+                        <div class="bleacher-seats">
+                            <div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div>
+                        </div>
+                        <span>Fila B</span>
+                    </div>
+                    <div class="bleacher-row vip">
+                        <span>Arquibancada VIP (Fila A)</span>
+                        <div class="bleacher-seats">
+                            <div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div><div class="seat-dot"></div>
+                        </div>
+                        <span>VIP</span>
+                    </div>
+                </div>
+
+                <!-- Quadra Poliesportiva -->
+                <div class="court-canvas" id="court">
+                    
+                    <!-- Overlay de Instruções (Exibido apenas quando vazio) -->
+                    <div class="empty-canvas-overlay" id="empty-overlay">
+                        <i class="fa-solid fa-shapes"></i>
+                        <p>Sua quadra está livre.<br>Configure e adicione um setor à esquerda para começar.</p>
+                    </div>
+
+                    <!-- Piso Principal (Azul Polyurethane) -->
+                    <div class="court-inner" id="court-interior">
+                        <!-- SVG com Marcações Oficiais Complexas -->
+                        <svg class="court-lines-svg" viewBox="0 0 804 434" preserveAspectRatio="none">
+                            <!-- Linha Central e Círculo do Meio da Quadra -->
+                            <line x1="402" y1="0" x2="402" y2="434" stroke="rgba(255, 255, 255, 0.85)" stroke-width="3" />
+                            <circle cx="402" cy="217" r="60" fill="none" stroke="rgba(255, 255, 255, 0.85)" stroke-width="3" />
+                            <circle cx="402" cy="217" r="3" fill="rgba(255, 255, 255, 0.85)" />
+
+                            <!-- Áreas de Futsal / Handball -->
+                            <path d="M 0,117 A 100,100 0 0,1 100,217 A 100,100 0 0,1 0,317" fill="none" stroke="rgba(255, 255, 255, 0.85)" stroke-width="3" />
+                            <path d="M 804,117 A 100,100 0 0,0 704,217 A 100,100 0 0,0 804,317" fill="none" stroke="rgba(255, 255, 255, 0.85)" stroke-width="3" />
+
+                            <!-- Marcas de Pênalti -->
+                            <circle cx="120" cy="217" r="3" fill="rgba(255, 255, 255, 0.85)" />
+                            <circle cx="684" cy="217" r="3" fill="rgba(255, 255, 255, 0.85)" />
+
+                            <!-- Linhas de Basquetebol -->
+                            <path d="M 0,57 A 160,160 0 0,1 160,217 A 160,160 0 0,1 0,377" fill="none" stroke="rgba(249, 115, 22, 0.75)" stroke-width="2.5" />
+                            <path d="M 804,57 A 160,160 0 0,0 644,217 A 160,160 0 0,0 804,377" fill="none" stroke="rgba(249, 115, 22, 0.75)" stroke-width="2.5" />
+                            <rect x="0" y="167" width="110" height="100" fill="none" stroke="rgba(249, 115, 22, 0.75)" stroke-width="2.5" />
+                            <rect x="694" y="167" width="110" height="100" fill="none" stroke="rgba(249, 115, 22, 0.75)" stroke-width="2.5" />
+
+                            <!-- Linhas de Voleibol -->
+                            <line x1="280" y1="0" x2="280" y2="434" stroke="rgba(239, 68, 68, 0.55)" stroke-dasharray="6,6" stroke-width="2" />
+                            <line x1="524" y1="0" x2="524" y2="434" stroke="rgba(239, 68, 68, 0.55)" stroke-dasharray="6,6" stroke-width="2" />
+                        </svg>
+                    </div>
+
+                    <!-- Os setores dinâmicos arrastáveis serão montados aqui via JS -->
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Sidebar Direita: Gestor de Setores e Propriedades Ativas -->
+        <aside class="sidebar sidebar-right">
+            
+            <div>
+                <h3 class="panel-section-title">4. Propriedades Ativas</h3>
+                
+                <!-- Rotação Dinâmica -->
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="active-rotation">Orientação / Rotação</label>
+                    <div class="range-container">
+                        <input type="range" id="active-rotation" min="0" max="360" value="0" disabled>
+                        <span class="range-val" id="rotation-val">0°</span>
+                    </div>
+                </div>
+
+                <!-- Dimensionamento Fino em Centímetros -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label for="active-width">Largura (cm) <span class="scale-indicator">1px = 5cm</span></label>
+                        <input type="text" id="active-width" value="600" style="text-align: center; padding: 6px;" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label for="active-height">Altura (cm) <span class="scale-indicator">1px = 5cm</span></label>
+                        <input type="text" id="active-height" value="400" style="text-align: center; padding: 6px;" disabled>
+                    </div>
+                </div>
+            </div>
+
+            <div style="flex-grow: 1; display: flex; flex-direction: column;">
+                <h3 class="panel-section-title">5. Setores Mapeados</h3>
+                
+                <div class="sectors-list" id="sectors-list-container">
+                    <!-- Gerado Dinamicamente -->
+                </div>
+            </div>
+
+            <!-- Ações Globais -->
+            <div class="file-actions">
+                <button class="btn-secondary" id="btn-export">
+                    <i class="fa-solid fa-download"></i> Exportar JSON
+                </button>
+                <button class="btn-secondary" id="btn-import">
+                    <i class="fa-solid fa-upload"></i> Importar JSON
+                </button>
+                <button class="btn-secondary" id="btn-export-png" style="grid-column: span 2; background-color: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); color: #60a5fa;">
+                    <i class="fa-solid fa-file-image"></i> Salvar Quadra como PNG
+                </button>
+                <button class="btn-secondary btn-clear-all" id="btn-clear">
+                    <i class="fa-solid fa-trash-can"></i> Limpar Todo o Layout
+                </button>
+            </div>
+
+        </aside>
+
+    </div>
+
+    <!-- Modais de Notificação Personalizados -->
+    <div class="notification-toast" id="toast">
+        <i class="fa-solid fa-circle-check" style="color: #10b981; font-size: 18px;"></i>
+        <span id="toast-message">Operação concluída!</span>
+    </div>
+
+    <div class="custom-dialog-overlay" id="dialog-overlay">
+        <div class="custom-dialog">
+            <div class="dialog-title" id="dialog-title">Aviso</div>
+            <div class="dialog-desc" id="dialog-desc">Descrição do aviso.</div>
+            <div class="dialog-actions">
+                <button class="dialog-btn dialog-btn-cancel" id="dialog-btn-cancel">Cancelar</button>
+                <button class="dialog-btn dialog-btn-confirm" id="dialog-btn-confirm">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de Funcionalidade da Aplicação -->
+    <script>
+        // Constante Oficial de Escala: 1 pixel = 5 centímetros
+        const CM_PER_PX = 5;
+
+        // Elementos UI
+        const court = document.getElementById('court');
+        const emptyOverlay = document.getElementById('empty-overlay');
+        const btnAddSector = document.getElementById('btn-add-sector');
+        const sectorNameInput = document.getElementById('sector-name-input');
+        const sectorOpacityInput = document.getElementById('sector-opacity');
+        const opacityValSpan = document.getElementById('opacity-val');
+        const sectorBorderSelect = document.getElementById('sector-border');
+        const customColorPicker = document.getElementById('custom-color-picker-input');
+        
+        // Controles de Edição Ativos
+        const activeRotationInput = document.getElementById('active-rotation');
+        const activeRotationVal = document.getElementById('rotation-val');
+        const activeWidthInput = document.getElementById('active-width');
+        const activeHeightInput = document.getElementById('active-height');
+        
+        const sectorsListContainer = document.getElementById('sectors-list-container');
+        const btnClear = document.getElementById('btn-clear');
+        const btnExport = document.getElementById('btn-export');
+        const btnImport = document.getElementById('btn-import');
+        const btnExportPng = document.getElementById('btn-export-png');
+
+        // Modais Personalizados
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toast-message');
+        const dialogOverlay = document.getElementById('dialog-overlay');
+        const dialogTitle = document.getElementById('dialog-title');
+        const dialogDesc = document.getElementById('dialog-desc');
+        const dialogBtnCancel = document.getElementById('dialog-btn-cancel');
+        const dialogBtnConfirm = document.getElementById('dialog-btn-confirm');
+
+        // Configurações do Novo Elemento
+        let selectedShape = 'rect';
+        let selectedColor = '#3b82f6';
+        let activeSelectedNode = null; 
+
+        // Estrutura de dados para armazenar os setores na memória
+        let sectorsData = [];
+
+        // Sistema de Notificações Customizadas (Toast)
+        function showNotification(msg, isError = false) {
+            toastMsg.innerText = msg;
+            const icon = toast.querySelector('i');
+            if (isError) {
+                icon.className = "fa-solid fa-circle-exclamation";
+                icon.style.color = "#ef4444";
+                toast.style.borderLeftColor = "#ef4444";
+            } else {
+                icon.className = "fa-solid fa-circle-check";
+                icon.style.color = "#10b981";
+                toast.style.borderLeftColor = "#3b82f6";
+            }
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Sistema de Caixa de Diálogo Premium
+        function showCustomConfirm(title, description, onConfirm) {
+            dialogTitle.innerText = title;
+            dialogDesc.innerText = description;
+            dialogOverlay.style.display = 'flex';
+            
+            // Unbind handlers anteriores
+            const newConfirm = dialogBtnConfirm.cloneNode(true);
+            const newCancel = dialogBtnCancel.cloneNode(true);
+            dialogBtnConfirm.parentNode.replaceChild(newConfirm, dialogBtnConfirm);
+            dialogBtnCancel.parentNode.replaceChild(newCancel, dialogBtnCancel);
+
+            newConfirm.addEventListener('click', () => {
+                dialogOverlay.style.display = 'none';
+                onConfirm();
+            });
+
+            newCancel.addEventListener('click', () => {
+                dialogOverlay.style.display = 'none';
+            });
+        }
+
+        // Inicializador de Eventos de Forma
+        document.querySelectorAll('.shape-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedShape = btn.getAttribute('data-shape');
+            });
+        });
+
+        // Inicializador de Eventos de Swatches de Cor
+        document.querySelectorAll('.color-swatch').forEach(swatch => {
+            swatch.addEventListener('click', () => {
+                document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+                swatch.classList.add('active');
+                selectedColor = swatch.getAttribute('data-color');
+                customColorPicker.value = selectedColor;
+            });
+        });
+
+        customColorPicker.addEventListener('input', (e) => {
+            selectedColor = e.target.value;
+            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        });
+
+        sectorOpacityInput.addEventListener('input', (e) => {
+            opacityValSpan.innerText = e.target.value + '%';
+        });
+
+        // Listener para rotação ativa do elemento selecionado
+        activeRotationInput.addEventListener('input', (e) => {
+            if (activeSelectedNode) {
+                const deg = e.target.value;
+                activeRotationVal.innerText = deg + '°';
+                
+                activeSelectedNode.style.transform = `rotate(${deg}deg)`;
+                
+                const sId = activeSelectedNode.getAttribute('data-id');
+                const sector = sectorsData.find(s => s.id === sId);
+                if (sector) {
+                    sector.rotation = parseInt(deg);
+                }
+            }
+        });
+
+        // Adicionar novo Setor
+        btnAddSector.addEventListener('click', () => {
+            let name = sectorNameInput.value.trim();
+            if (name === "") name = "Setor " + (sectorsData.length + 1);
+
+            const opacityVal = sectorOpacityInput.value / 100;
+            const borderStyle = sectorBorderSelect.value;
+
+            // Cria o objeto de dados correspondente usando unidades físicas padrão
+            const newSector = {
+                id: 'sec_' + Date.now(),
+                name: name,
+                shape: selectedShape,
+                color: selectedColor,
+                opacity: opacityVal,
+                borderStyle: borderStyle,
+                width: selectedShape === 'circle' ? 100 : 120, // Pixels
+                height: selectedShape === 'circle' ? 100 : 80,  // Pixels
+                x: 60 + (sectorsData.length * 15) % 200,
+                y: 60 + (sectorsData.length * 15) % 150,
+                rotation: 0
+            };
+
+            sectorsData.push(newSector);
+            renderSectorOnCanvas(newSector);
+            updateSectorsSidebar();
+            checkEmptyState();
+            showNotification(`Setor "${name}" adicionado com sucesso!`);
+        });
+
+        // Renderizar a forma física no canvas (quadra)
+        function renderSectorOnCanvas(data) {
+            const node = document.createElement('div');
+            node.className = `sector-node shape-${data.shape}`;
+            node.setAttribute('data-id', data.id);
+            node.id = data.id;
+
+            // Configuração física baseada no pixel
+            node.style.width = data.width + 'px';
+            node.style.height = data.height + 'px';
+            node.style.left = data.x + 'px';
+            node.style.top = data.y + 'px';
+            
+            const rgba = hexToRgba(data.color, data.opacity);
+            node.style.backgroundColor = rgba;
+            
+            if (data.borderStyle === 'none') {
+                node.style.border = 'none';
+            } else {
+                node.style.border = `2px ${data.borderStyle} ${data.color}`;
+            }
+
+            node.style.transform = `rotate(${data.rotation}deg)`;
+
+            const tag = document.createElement('span');
+            tag.className = 'sector-tag';
+            tag.innerText = data.name;
+            node.appendChild(tag);
+
+            const btnDel = document.createElement('button');
+            btnDel.className = 'node-delete-btn';
+            btnDel.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            btnDel.addEventListener('click', (e) => {
+                e.stopPropagation(); 
+                showCustomConfirm(
+                    "Excluir Setor", 
+                    `Tem certeza de que deseja remover o setor "${data.name}"?`, 
+                    () => deleteSector(data.id)
+                );
+            });
+            node.appendChild(btnDel);
+
+            // Eventos interativos híbridos (Mouse + Toque de Smartphone)
+            applyInteractivity(node);
+
+            court.appendChild(node);
+            selectNode(node);
+        }
+
+        // Aplica Arrastador compatível com Mouse e Touch de Celulares de forma segura
+        function applyInteractivity(element) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            
+            element.addEventListener('mousedown', dragStart);
+            element.addEventListener('touchstart', dragStart, { passive: false });
+
+            function dragStart(e) {
+                if (e.target.className === 'node-delete-btn' || e.target.closest('.node-delete-btn')) {
+                    return;
+                }
+                
+                const isTouch = e.type === 'touchstart';
+                const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+                const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+
+                if (isTouch) {
+                    // Impede rolagem do navegador apenas quando estiver interagindo diretamente com o setor
+                    e.preventDefault();
+                } else {
+                    e.preventDefault();
+                }
+
+                selectNode(element);
+
+                pos3 = clientX;
+                pos4 = clientY;
+
+                if (isTouch) {
+                    document.addEventListener('touchend', dragEnd, { passive: false });
+                    document.addEventListener('touchmove', dragMove, { passive: false });
+                } else {
+                    document.addEventListener('mouseup', dragEnd);
+                    document.addEventListener('mousemove', dragMove);
+                }
+            }
+
+            function dragMove(e) {
+                const isTouch = e.type === 'touchmove';
+                const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+                const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+
+                if (isTouch) {
+                    e.preventDefault();
+                } else {
+                    e.preventDefault();
+                }
+
+                pos1 = pos3 - clientX;
+                pos2 = pos4 - clientY;
+                pos3 = clientX;
+                pos4 = clientY;
+
+                let newTop = element.offsetTop - pos2;
+                let newLeft = element.offsetLeft - pos1;
+
+                // Limita movimentação na área útil da quadra
+                if (newTop < 0) newTop = 0;
+                if (newLeft < 0) newLeft = 0;
+                if (newTop + element.offsetHeight > court.clientHeight) newTop = court.clientHeight - element.offsetHeight;
+                if (newLeft + element.offsetWidth > court.clientWidth) newLeft = court.clientWidth - element.offsetWidth;
+
+                element.style.top = newTop + 'px';
+                element.style.left = newLeft + 'px';
+
+                // Atualiza em tempo real as coordenadas na memória
+                const sId = element.getAttribute('data-id');
+                const sector = sectorsData.find(s => s.id === sId);
+                if (sector) {
+                    sector.x = newLeft;
+                    sector.y = newTop;
+                }
+            }
+
+            function dragEnd() {
+                document.removeEventListener('mouseup', dragEnd);
+                document.removeEventListener('mousemove', dragMove);
+                document.removeEventListener('touchend', dragEnd);
+                document.removeEventListener('touchmove', dragMove);
+            }
+        }
+
+        // Selecionar um nó de setor ativo para edição fina
+        function selectNode(node) {
+            if (activeSelectedNode) {
+                activeSelectedNode.classList.remove('selected');
+            }
+
+            activeSelectedNode = node;
+            node.classList.add('selected');
+
+            // Habilitar controles na sidebar direita
+            activeRotationInput.removeAttribute('disabled');
+            activeWidthInput.removeAttribute('disabled');
+            activeHeightInput.removeAttribute('disabled');
+
+            // Sincronizar dados do setor selecionado com a UI (Convertendo px para cm)
+            const sId = node.getAttribute('data-id');
+            const sector = sectorsData.find(s => s.id === sId);
+            if (sector) {
+                activeRotationInput.value = sector.rotation;
+                activeRotationVal.innerText = sector.rotation + '°';
+                
+                // Exibe as dimensões convertidas em CENTÍMETROS
+                activeWidthInput.value = Math.round(sector.width * CM_PER_PX);
+                activeHeightInput.value = Math.round(sector.height * CM_PER_PX);
+            }
+
+            // Destacar o item na lista do painel direito
+            document.querySelectorAll('.sector-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('data-id') === sId) {
+                    item.classList.add('active');
+                }
+            });
+        }
+
+        // Deletar um Setor pelo ID
+        function deleteSector(id) {
+            sectorsData = sectorsData.filter(s => s.id !== id);
+            
+            const node = document.getElementById(id);
+            if (node) node.remove();
+
+            if (activeSelectedNode && activeSelectedNode.id === id) {
+                activeSelectedNode = null;
+                activeRotationInput.setAttribute('disabled', 'true');
+                activeWidthInput.setAttribute('disabled', 'true');
+                activeHeightInput.setAttribute('disabled', 'true');
+                activeRotationInput.value = 0;
+                activeRotationVal.innerText = '0°';
+                activeWidthInput.value = '';
+                activeHeightInput.value = '';
+            }
+
+            updateSectorsSidebar();
+            checkEmptyState();
+            showNotification("Setor deletado.");
+        }
+
+        // Atualizar lista de gerenciamento lateral direito
+        function updateSectorsSidebar() {
+            sectorsListContainer.innerHTML = '';
+
+            sectorsData.forEach(sector => {
+                const item = document.createElement('div');
+                item.className = 'sector-item';
+                item.setAttribute('data-id', sector.id);
+                if (activeSelectedNode && activeSelectedNode.id === sector.id) {
+                    item.classList.add('active');
+                }
+
+                let iconClass = 'fa-square';
+                if (sector.shape === 'circle') iconClass = 'fa-circle';
+                else if (sector.shape === 'ellipse') iconClass = 'fa-circle-notch';
+                else if (sector.shape === 'triangle') iconClass = 'fa-caret-up';
+
+                // Mostra dimensões calculadas em cm na lista lateral
+                const widthCm = Math.round(sector.width * CM_PER_PX);
+                const heightCm = Math.round(sector.height * CM_PER_PX);
+
+                item.innerHTML = `
+                    <div class="sector-item-info">
+                        <div class="sector-item-color" style="background-color: ${sector.color};"></div>
+                        <div style="min-width: 0;">
+                            <div class="sector-item-name">${sector.name}</div>
+                            <div class="sector-item-type"><i class="fa-regular ${iconClass}"></i> ${sector.shape} (${widthCm}x${heightCm} cm)</div>
+                        </div>
+                    </div>
+                    <div class="sector-item-actions">
+                        <button class="action-icon-btn delete" title="Remover Setor" onclick="event.stopPropagation(); triggerSectorDelete('${sector.id}', '${sector.name}')">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+
+                item.addEventListener('click', () => {
+                    const node = document.getElementById(sector.id);
+                    if (node) selectNode(node);
+                });
+
+                sectorsListContainer.appendChild(item);
+            });
+        }
+
+        // Handler auxiliar para disparar deleção na lista
+        window.triggerSectorDelete = function(id, name) {
+            showCustomConfirm(
+                "Excluir Setor", 
+                `Tem certeza de que deseja remover o setor "${name}"?`, 
+                () => deleteSector(id)
+            );
+        };
+
+        function checkEmptyState() {
+            if (sectorsData.length === 0) {
+                emptyOverlay.style.display = 'flex';
+            } else {
+                emptyOverlay.style.display = 'none';
+            }
+        }
+
+        // Mudança dinâmica de dimensões inseridas em CENTÍMETROS
+        [activeWidthInput, activeHeightInput].forEach(input => {
+            input.addEventListener('change', () => {
+                if (activeSelectedNode) {
+                    const sectorId = activeSelectedNode.getAttribute('data-id');
+                    const sector = sectorsData.find(s => s.id === sectorId);
+                    
+                    if (sector) {
+                        // Resgata o valor em Centímetros digitado pelo usuário
+                        const valW_cm = parseFloat(activeWidthInput.value) || 100;
+                        const valH_cm = parseFloat(activeHeightInput.value) || 100;
+                        
+                        // Converte centímetros de volta para pixels para o motor CSS
+                        const valW_px = Math.round(valW_cm / CM_PER_PX);
+                        const valH_px = Math.round(valH_cm / CM_PER_PX);
+
+                        // Salvaguardas mínimas de escala física para evitar sumiço
+                        const minW_px = 15;
+                        const minH_px = 15;
+                        
+                        sector.width = Math.max(valW_px, minW_px);
+                        sector.height = Math.max(valH_px, minH_px);
+
+                        // Redefine as proporções reais do DOM
+                        activeSelectedNode.style.width = sector.width + 'px';
+                        activeSelectedNode.style.height = sector.height + 'px';
+
+                        // Atualiza a visualização do input corrigindo para as travas se houverem
+                        activeWidthInput.value = Math.round(sector.width * CM_PER_PX);
+                        activeHeightInput.value = Math.round(sector.height * CM_PER_PX);
+
+                        updateSectorsSidebar();
+                    }
+                }
+            });
+        });
+
+        function hexToRgba(hex, opacity) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        }
+
+        // Evento Limpar Tudo
+        btnClear.addEventListener('click', () => {
+            showCustomConfirm(
+                "Limpar Todo o Layout", 
+                "Esta ação irá remover todos os setores e tags adicionados à quadra. Deseja continuar?", 
+                () => {
+                    sectorsData = [];
+                    document.querySelectorAll('.sector-node').forEach(node => node.remove());
+                    activeSelectedNode = null;
+                    activeRotationInput.setAttribute('disabled', 'true');
+                    activeWidthInput.setAttribute('disabled', 'true');
+                    activeHeightInput.setAttribute('disabled', 'true');
+                    updateSectorsSidebar();
+                    checkEmptyState();
+                    showNotification("Quadra limpa com sucesso!");
+                }
+            );
+        });
+
+        // Exportar Layout em JSON
+        btnExport.addEventListener('click', () => {
+            if (sectorsData.length === 0) {
+                showNotification("Nenhum setor criado para exportar.", true);
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sectorsData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "setorizacao_quadra.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showNotification("Layout de setores baixado com sucesso!");
+        });
+
+        // Exportar como Imagem PNG de alta resolução
+        btnExportPng.addEventListener('click', () => {
+            if (sectorsData.length === 0) {
+                showNotification("Adicione pelo menos um setor para poder exportar a imagem.", true);
+                return;
+            }
+
+            // Deseleciona qualquer nó ativo para limpar as bordas pontilhadas e o botão de deletar no print
+            deselectActiveNode();
+
+            // Altera visualmente o botão para indicar processamento
+            const originalContent = btnExportPng.innerHTML;
+            btnExportPng.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Gerando PNG HD...';
+            btnExportPng.setAttribute('disabled', 'true');
+
+            // Aguarda um breve momento para garantir que o estilo visual seja limpo antes do screenshot
+            setTimeout(() => {
+                html2canvas(court, {
+                    backgroundColor: '#1e293b', // Garante consistência de fundo da borda exterior
+                    useCORS: true,
+                    scale: 2, // Exporta o dobro de resolução (High Definition)
+                    logging: false
+                }).then(canvas => {
+                    try {
+                        const imgData = canvas.toDataURL('image/png');
+                        const downloadAnchor = document.createElement('a');
+                        downloadAnchor.setAttribute("href", imgData);
+                        downloadAnchor.setAttribute("download", `arena_setorizada_${Date.now()}.png`);
+                        document.body.appendChild(downloadAnchor);
+                        downloadAnchor.click();
+                        downloadAnchor.remove();
+                        showNotification("Imagem PNG exportada com sucesso!");
+                    } catch (err) {
+                        showNotification("Erro ao processar imagem para download.", true);
+                        console.error(err);
+                    } finally {
+                        // Restaura o botão ao estado normal
+                        btnExportPng.innerHTML = originalContent;
+                        btnExportPng.removeAttribute('disabled');
+                    }
+                }).catch(err => {
+                    showNotification("Erro na geração da imagem da quadra.", true);
+                    console.error(err);
+                    btnExportPng.innerHTML = originalContent;
+                    btnExportPng.removeAttribute('disabled');
+                });
+            }, 150);
+        });
+
+        // Importar Layout via JSON
+        btnImport.addEventListener('click', () => {
+            const uploadInput = document.createElement('input');
+            uploadInput.type = 'file';
+            uploadInput.accept = '.json';
+            
+            uploadInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+                        if (Array.isArray(importedData)) {
+                            // Limpa quadra atual
+                            document.querySelectorAll('.sector-node').forEach(node => node.remove());
+                            sectorsData = importedData;
+                            
+                            // Renderiza todas as formas importadas
+                            sectorsData.forEach(s => renderSectorOnCanvas(s));
+                            updateSectorsSidebar();
+                            checkEmptyState();
+                            showNotification("Layout importado com sucesso!");
+                        } else {
+                            showNotification("Formato do arquivo importado inválido.", true);
+                        }
+                    } catch (err) {
+                        showNotification("Erro ao processar o arquivo JSON.", true);
+                    }
+                };
+                reader.readAsText(file);
+            });
+            uploadInput.click();
+        });
+
+        // Deseleciona formas ao clicar em partes vazias da quadra
+        court.addEventListener('mousedown', (e) => {
+            if (e.target === court || e.target === document.getElementById('court-interior')) {
+                deselectActiveNode();
+            }
+        });
+
+        court.addEventListener('touchstart', (e) => {
+            if (e.target === court || e.target === document.getElementById('court-interior')) {
+                deselectActiveNode();
+            }
+        });
+
+        function deselectActiveNode() {
+            if (activeSelectedNode) {
+                activeSelectedNode.classList.remove('selected');
+                activeSelectedNode = null;
+                activeRotationInput.setAttribute('disabled', 'true');
+                activeWidthInput.setAttribute('disabled', 'true');
+                activeHeightInput.setAttribute('disabled', 'true');
+                activeWidthInput.value = '';
+                activeHeightInput.value = '';
+                document.querySelectorAll('.sector-item').forEach(item => item.classList.remove('active'));
+            }
+        }
+    </script>
+</body>
+</html>
